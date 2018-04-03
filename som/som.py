@@ -112,11 +112,6 @@ class SOM():
         plt.ylabel('weightDiffences')
         plt.show()
 
-    def displayClusters(self, samples):
-        plt.plot(samples)
-        plt.ylabel('weightDiffences')
-        plt.show()
-
 def main():
     
     num_training = 100
