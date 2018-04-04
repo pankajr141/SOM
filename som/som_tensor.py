@@ -31,8 +31,10 @@ class SOM():
         self.sample = tf.placeholder(tf.float32, [1, dimentions], name='sample')
         self.weights_ = None
         self.ZERO = tf.constant(0.0)
-        
+        self.iteration= tf.Variable(0.0, tf.float32)
         self.defineUpdateWeightsGraph()
+        self.defineUpdateLearningRateGraph()
+        self.defineNeighbourhoodRadiusGraph()
         ##INITIALIZE SESSION
         self.sess = tf.Session()
 
@@ -53,9 +55,13 @@ class SOM():
                 self.sess.run(self._training_op, feed_dict={self.sample: sample})
 
                 #self.updateWeights(sample) # Tremendously slow, as in case of  function call tensorflow is creating new variables.
+            #self.sess.run(self.learning_rate, feed_dict={self.iteration:  float(i)})
+            #self.sess.run(self.neighbourhood_radius, feed_dict={self.iteration:  float(i)})
+            self.sess.run(self._training_op_lr, feed_dict={self.iteration:  float(i)})
+            self.sess.run(self._training_op_nr, feed_dict={self.iteration:  float(i)})
 
-            self.updateLearningRate(i)
-            self.updateNeighbourhoodRadius(i)
+            #self.updateLearningRate(i)
+            #self.updateNeighbourhoodRadius(i)
 #             if i % 10 == 0:
 #                 self.weights_ = self.sess.run(self.weights)
 #                 self.display(samples, 
@@ -119,13 +125,15 @@ class SOM():
         self._training_op = tf.assign(self.weights, weights_new)  
 
     # Ideally this should be also definded like updateWeights fn since here tensorflow will create a new copy, but since these are very few in size we can ifnore for now
-    def updateLearningRate(self, iteration):
+    def defineUpdateLearningRateGraph(self):
         """Function to update the learning rate"""
-        self.learning_rate = self.initial_learning_rate * np.exp(-iteration/self.n_iter)
-
-    def updateNeighbourhoodRadius(self, iteration):
+        learning_rate = self.initial_learning_rate * tf.exp(-self.iteration/self.n_iter)
+        self._training_op_lr = tf.assign(self.learning_rate, learning_rate)
+        
+    def defineNeighbourhoodRadiusGraph(self):
         """Function to update the neighbourhood radius"""
-        self.neighbourhood_radius = self.initial_neighbourhood_radius * tf.exp(-iteration/self.time_constant)
+        neighbourhood_radius = self.initial_neighbourhood_radius * tf.exp(-self.iteration/self.time_constant)
+        self._training_op_nr = tf.assign(self.neighbourhood_radius, neighbourhood_radius)
 
     def display(self, samples, title, show=False):
         dimentions = self.weights.shape
