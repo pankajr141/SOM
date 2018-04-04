@@ -39,22 +39,28 @@ class SOM():
             for _ in samples:
                 sample = random.choice(samples)
                 """For each sample check which neuron has closest proximity"""
-                distances = cdist(self.weights.reshape(dimentions[0]*dimentions[1], dimentions[2]), sample, metric='euclidean')
-                distances = distances.reshape(dimentions[0], dimentions[1])
-                indices = np.where(distances == distances.min())  # Getting the neuron with min distance
-
                 #current_weights = self.weights
-                self.updateWeights(sample, indices)
+                self.updateWeights(sample)
                 # Just to find the display metric
                 #weightDiff = np.sqrt(np.sum(np.multiply(self.weights - current_weights, self.weights - current_weights)))
                 #weightDiffences.append(weightDiff)
-
+            
+#             if i % 100 == 0:
+#                 self.display(samples, 
+#                             "Iteration: " + str(i) + 
+#                             " | LR: %s %s" % (self.initial_learning_rate, self.learning_rate) +
+#                             " | NR: %s %s" % (self.initial_neighbourhood_radius, self.neighbourhood_radius))
             self.updateLearningRate(i)
             self.updateNeighbourhoodRadius(i)
         #self.displayWeightDiff(weightDiffences)
 
-    def updateWeights(self, sample, indices):
+    def updateWeights(self, sample):
         dimentions = self.weights.shape
+        
+        # Fund BMU neuron
+        distances = cdist(self.weights.reshape(dimentions[0]*dimentions[1], dimentions[2]), sample, metric='euclidean')
+        distances = distances.reshape(dimentions[0], dimentions[1])
+        indices = np.where(distances == distances.min())  # Getting the neuron with min distance
         
         """ Caculate how much each neighbourhood neurons will affect the weight basted on their distance"""
         closestNeuron = self.weights[indices[0][0], indices[1][0]]
@@ -114,7 +120,7 @@ class SOM():
 
 def main():
     
-    num_training = 100
+    num_training = 200
     samples = []
     choices = [1, 5, 10, 90, 80, 85]
     
@@ -127,11 +133,16 @@ def main():
                         random.choice(choices) / float(100)])
         sample = sample.reshape(1, 3)
         samples.append(sample)
-    
+
+    import time
+    starttime = time.time()
     s = SOM(neurons=(5,5), dimentions=3, n_iter=500, learning_rate=0.1)
     s.train(samples)
+    endtime = time.time() - starttime
+    print("Total TIME: ", endtime)
+    
     s.display(samples, "Final", show=True)
-    s.displayClusters(samples)
+    #s.displayClusters(samples)
 
 if __name__ == "__main__":
     main()
