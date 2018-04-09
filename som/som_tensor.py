@@ -9,14 +9,10 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import cdist
 import numpy as np
+import pandas as pd
 
-
-class SOM():
+class SOM_TENSOR():
     def __init__(self, neurons, dimentions, n_iter=1000, learning_rate=0.1):
-        
-        ##INITIALIZE GRAPH
-        #self._graph = tf.Graph()
-        #with self._graph.as_default():
         neighbourhood_radius = np.sum(neurons) * 1.0
         self.neurons = neurons
         self.dimentions = dimentions
@@ -27,58 +23,41 @@ class SOM():
         self.initial_neighbourhood_radius = tf.constant(neighbourhood_radius, dtype=tf.float32)
         self.neighbourhood_radius = tf.Variable(neighbourhood_radius, dtype=tf.float32)
         self.time_constant = tf.constant(n_iter/np.log(neighbourhood_radius), tf.float32)
-        self.fig = plt.figure()
+#         self.fig = plt.figure()
         self.sample = tf.placeholder(tf.float32, [1, dimentions], name='sample')
         self.weights_ = None
+        self.labels_ = None
         self.ZERO = tf.constant(0.0)
         self.iteration= tf.Variable(0.0, tf.float32)
         self.defineUpdateWeightsGraph()
         self.defineUpdateLearningRateGraph()
         self.defineNeighbourhoodRadiusGraph()
+
         ##INITIALIZE SESSION
-        self.sess = tf.Session()
+        self.sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 
         ##INITIALIZE VARIABLES
         init_op = tf.initialize_all_variables()
         self.sess.run(init_op)
- 
-    def train(self, samples):
 
-        for i in range(1, self.n_iter+1):
-            print("Iteration :", i)
-            for _ in samples:
-                sample = random.choice(samples)
-                #print(self.sess.run(self.distances, feed_dict={self.sample: sample}))
-                #print(self.sess.run(self.influenceVector, feed_dict={self.sample: sample}))
-                #print(self.sess.run(self.influenceValues, feed_dict={self.sample: sample}))
-                """For each sample check which neuron has closest proximity"""
-                self.sess.run(self._training_op, feed_dict={self.sample: sample})
-
-                #self.updateWeights(sample) # Tremendously slow, as in case of  function call tensorflow is creating new variables.
-            #self.sess.run(self.learning_rate, feed_dict={self.iteration:  float(i)})
-            #self.sess.run(self.neighbourhood_radius, feed_dict={self.iteration:  float(i)})
-            self.sess.run(self._training_op_lr, feed_dict={self.iteration:  float(i)})
-            self.sess.run(self._training_op_nr, feed_dict={self.iteration:  float(i)})
-
-            #self.updateLearningRate(i)
-            #self.updateNeighbourhoodRadius(i)
-#             if i % 10 == 0:
-#                 self.weights_ = self.sess.run(self.weights)
-#                 self.display(samples, 
-#                             "Iteration: " + str(i) + 
-#                             " | LR: %s %s" % (self.sess.run(self.initial_learning_rate), self.sess.run(self.learning_rate)) +
-#                             " | NR: %s %s" % (self.sess.run(self.initial_neighbourhood_radius), self.sess.run(self.neighbourhood_radius)))
-
-        self.weights_ = self.sess.run(self.weights)
+    def _assignLabels(self, samples):
+        labels = []
+        for sample in samples:
+            distances = cdist(self.weights_, sample, metric='euclidean')
+            indices = np.where(distances == distances.min())
+            labels.append(indices[0][0])
+        self.labels_ = labels
     
     def defineUpdateWeightsGraph(self):
+        """ Graph structure to update weights """
+        
         dimentions = self.weights.shape
         weight_ = tf.reshape(self.weights, [dimentions[0]*dimentions[1], dimentions[2]])
         distances = tf.reduce_sum(tf.square(weight_ - self.sample), axis=1, keepdims=True)
         distances = tf.reshape(distances, (dimentions[0], dimentions[1]))
         indices = tf.where(distances <= tf.reduce_min(distances)) # Getting the neuron with min distance
 
-        """ Caculate how much each neighbourhood neurons will affect the weight basted on their distance"""
+        """ Calculate how much each neighbourhood neurons will affect the weight basted on their distance"""
         closestNeuron = tf.reshape(self.weights[indices[0][0], indices[0][1]], [1, dimentions[2]])
 
         weight_ = tf.reshape(self.weights, [dimentions[0]*dimentions[1], dimentions[2]])
@@ -134,35 +113,103 @@ class SOM():
         """Function to update the neighbourhood radius"""
         neighbourhood_radius = self.initial_neighbourhood_radius * tf.exp(-self.iteration/self.time_constant)
         self._training_op_nr = tf.assign(self.neighbourhood_radius, neighbourhood_radius)
+ 
+    def train(self, samples):
 
-    def display(self, samples, title, show=False):
-        dimentions = self.weights.shape
-        if not show:
-            plt.ion()
-        ax = self.fig.add_subplot(111, projection='3d')
-        plt.title(title)
-        ax.set_xlabel('X Label')
-        ax.set_ylabel('Y Label')
-        ax.set_zlabel('Z Label')
+        for i in range(1, self.n_iter+1):
+            print("Iteration :", i)
+            for _ in samples:
+                sample = random.choice(samples)
+                #print(self.sess.run(self.distances, feed_dict={self.sample: sample}))
+                #print(self.sess.run(self.influenceVector, feed_dict={self.sample: sample}))
+                #print(self.sess.run(self.influenceValues, feed_dict={self.sample: sample}))
+                """For each sample check which neuron has closest proximity"""
+                self.sess.run(self._training_op, feed_dict={self.sample: sample})
 
+                #self.updateWeights(sample) # Tremendously slow, as in case of  function call tensorflow is creating new variables.
+            #self.sess.run(self.learning_rate, feed_dict={self.iteration:  float(i)})
+            #self.sess.run(self.neighbourhood_radius, feed_dict={self.iteration:  float(i)})
+            self.sess.run(self._training_op_lr, feed_dict={self.iteration:  float(i)})
+            self.sess.run(self._training_op_nr, feed_dict={self.iteration:  float(i)})
+
+            #self.updateLearningRate(i)
+            #self.updateNeighbourhoodRadius(i)
+#             if i % 10 == 0:
+#                 self.weights_ = self.sess.run(self.weights)
+#                 self.display(samples, 
+#                             "Iteration: " + str(i) + 
+#                             " | LR: %s %s" % (self.sess.run(self.initial_learning_rate), self.sess.run(self.learning_rate)) +
+#                             " | NR: %s %s" % (self.sess.run(self.initial_neighbourhood_radius), self.sess.run(self.neighbourhood_radius)))
+
+        self.weights_ = self.sess.run(self.weights)
+        dimentions = self.weights_.shape
+        self.weights_ = self.weights_.reshape(dimentions[0]*dimentions[1], dimentions[2])
+        self._assignLabels(samples)
+
+    def predict(self, samples):
+        result = []
         for sample in samples:
-            ax.scatter(sample[0][0], sample[0][1], sample[0][2], c=sample, marker='.')
+            distances = cdist(self.weights_, sample, metric='euclidean')
+            indices = np.where(distances == distances.min())  # Getting the neuron with min distance
+            #print(indices[0][0])
+            result.append(indices[0][0])
+        return np.array(result)
 
-        for weight in self.weights_.reshape(dimentions[0]*dimentions[1], dimentions[2]):
-            ax.scatter(weight[0], weight[1], weight[2], c='red', marker='X')
+#     def display(self, samples, title, show=False):
+#         dimentions = self.weights.shape
+#         if not show:
+#             plt.ion()
+#         ax = self.fig.add_subplot(111, projection='3d')
+#         plt.title(title)
+#         ax.set_xlabel('X Label')
+#         ax.set_ylabel('Y Label')
+#         ax.set_zlabel('Z Label')
+# 
+#         for sample in samples:
+#             ax.scatter(sample[0][0], sample[0][1], sample[0][2], c=sample, marker='.')
+# 
+#         for weight in self.weights_.reshape(dimentions[0]*dimentions[1], dimentions[2]):
+#             ax.scatter(weight[0], weight[1], weight[2], c='red', marker='X')
+# 
+#         if show:
+#             plt.show()
+#         else:
+#             plt.pause(0.05)
+# 
+#     def displayWeightDiff(self, weightDiffences):
+#         plt.plot(weightDiffences)
+#         plt.ylabel('weightDiffences')
+#         plt.show()
 
-        if show:
-            plt.show()
-        else:
-            plt.pause(0.05)
-
-    def displayWeightDiff(self, weightDiffences):
-        plt.plot(weightDiffences)
-        plt.ylabel('weightDiffences')
+    def displayClusters(self, samples):
+        from sklearn.decomposition import PCA
+        samples = np.array(samples)
+        samples = samples.reshape(samples.shape[0], samples.shape[2])
+        df = pd.DataFrame(self.labels_, columns=["labels"])
+        df['data'] = df.apply(lambda x: list(samples[x.name]), axis=1)
+        
+        plt.style.use('seaborn-white')
+        fig = plt.figure()
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+        fig, ax = plt.subplots(self.neurons[0], self.neurons[1], sharex='col', sharey='row')
+        cntr = -1
+        for i in range(self.neurons[0]):
+            for j in range(self.neurons[1]):
+                cntr += 1
+                df_ = df[df['labels'] == cntr]
+                print("Label:", cntr, "shape:", df_.shape)
+                if df_.shape[0] <= 1:
+                    continue 
+                pca = PCA(n_components=2)
+                samples_ = pca.fit_transform(df_['data'].tolist())
+                for li, sample in enumerate(df_['data']):
+                    ax[i, j].scatter(samples_[li][0], samples_[li][1], c=sample, marker='.')
+                #ax[i, j].text(0.5, 0.5, str((2, 3, i)),
+                #         fontsize=18, ha='center')
         plt.show()
 
 def main():    
-    num_training = 200
+    num_training = 500
     samples = []
     choices = [1, 5, 10, 90, 80, 85]
     
@@ -178,13 +225,18 @@ def main():
     
     import time
     starttime = time.time()
-    s = SOM(neurons=(5,5), dimentions=3, n_iter=500, learning_rate=0.1)
+    s = SOM_TENSOR(neurons=(5,5), dimentions=3, n_iter=500, learning_rate=0.1)
     s.train(samples)
     endtime = time.time() - starttime
     print("Total TIME: ", endtime)
 
-    s.display(samples, "Final", show=True)
-    #s.displayClusters(samples)
+    print("Cluster centres:", s.weights_)
+    print("labels:",s.labels_)
+    result = s.predict(samples)
+    print(result)
+
+    #s.display(samples, "Final", show=True)
+    s.displayClusters(samples)
 
 if __name__ == "__main__":
     main()
