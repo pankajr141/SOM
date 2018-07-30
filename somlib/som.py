@@ -3,14 +3,15 @@ Created on Apr 9, 2018
 
 @author: 703188429
 '''
+
 class SOM():
     def __init__(self, neurons, dimentions, n_iter=1000, learning_rate=0.1, mode="numpy"):
         self.obj = None
         if mode == "numpy":
-            from som_numpy import SOM_NUMPY
+            from somlib.som_numpy import SOM_NUMPY
             self.obj = SOM_NUMPY(neurons, dimentions, n_iter, learning_rate)
         elif mode == "tensor":
-            from som_tensor import SOM_TENSOR
+            from somlib.som_tensor import SOM_TENSOR
             self.obj = SOM_TENSOR(neurons, dimentions, n_iter, learning_rate)  
           
         self.predict = self.obj.predict
